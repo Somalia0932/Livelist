@@ -1,0 +1,95 @@
+name: Update
+
+on:
+  watch:
+    types: [started]
+  schedule:
+    - cron: 0 6 * * *
+    - cron: 0 12 * * *
+    - cron: 0 18 * * *
+  workflow_dispatch:
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  Update:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+          token: ${{ secrets.LIVELIST }}
+
+    - name: GetTime
+      run: echo "DATE=$(date +'%Y-%m-%d %H:%M:%S CST')" >> $GITHUB_ENV
+
+    - name: Update
+      run: |
+            # 央视源
+            rm -f CCTV.m3u && wget  https://ghp.p3terx.com/https://raw.githubusercontent.com/fanmingming/live/main/tv/m3u/ipv6.m3u -O CCTV.m3u
+            sed -i -n '/央视频道/,+1p' CCTV.m3u
+            sed -i '1i #EXTM3U' CCTV.m3u
+            sed -i '/^\s*$/d' CCTV.m3u
+            
+            # 卫视源
+            rm -f CNTV.m3u && touch CNTV.m3u
+            wget https://ghp.p3terx.com/https://raw.githubusercontent.com/fanmingming/live/main/tv/m3u/ipv6.m3u -O CNTV1.m3u && sed -i -n '/卫视频道/,+1p' CNTV1.m3u
+            wget https://ghp.p3terx.com/https://raw.githubusercontent.com/fanmingming/live/main/tv/m3u/ipv6.m3u -O CNTV2.m3u && sed -i -n '/数字频道/,+1p' CNTV2.m3u
+            cat CNTV1.m3u >> CNTV.m3u
+            cat CNTV2.m3u >> CNTV.m3u
+            rm -f CNTV1.m3u CNTV2.m3u
+            sed -i '1i #EXTM3U' CNTV.m3u
+            sed -i '/^\s*$/d' CNTV.m3u
+            
+            # 综合赛事
+            rm -f ZHSS.m3u && touch ZHSS.m3u
+            wget https://gitee.com/kevinlyl120/ipv6/raw/master/ipv6.m3u -O ZHSS1.m3u && sed -i -n '/综合赛事/,+1p' ZHSS1.m3u
+            cat ZHSS1.m3u >> ZHSS.m3u
+            rm -f ZHSS1.m3u 
+            sed -i '1i #EXTM3U' ZHSS.m3u
+            sed -i '/^\s*$/d' ZHSS.m3u
+            
+            # 五大联赛
+            rm -f WDLS.m3u && touch WDLS.m3u
+            wget https://gitee.com/kevinlyl120/ipv6/raw/master/ipv6.m3u -O WDLS1.m3u && sed -i -n '/五大联赛/,+1p' WDLS1.m3u
+            cat WDLS1.m3u >> WDLS.m3u
+            rm -f WDLS1.m3u 
+            sed -i '1i #EXTM3U' WDLS.m3u
+            sed -i '/^\s*$/d' WDLS.m3u
+            
+            # 咪咕直播-移动
+            rm -f MIGU.m3u && touch MIGU.m3u
+            wget https://gitee.com/kevinlyl120/ipv6/raw/master/ipv6.m3u -O MIGU1.m3u && sed -i -n '/咕直播-移动/,+1p' MIGU1.m3u
+            cat MIGU1.m3u >> MIGU.m3u
+            rm -f MIGU1.m3u 
+            sed -i '1i #EXTM3U' MIGU.m3u
+            sed -i '/^\s*$/d' MIGU.m3u
+            
+            # 整合源
+            rm -f IPTV.m3u && touch IPTV.m3u
+            cat CCTV.m3u >> IPTV.m3u
+            cat CNTV.m3u >> IPTV.m3u
+            cat ZHSS.m3u >> IPTV.m3u
+            cat WDLS.m3u >> IPTV.m3u
+            cat MIGU.m3u >> IPTV.m3u
+            sed -i '/#EXTM3U/d' IPTV.m3u
+            sed -i '1i #EXTM3U' IPTV.m3u
+            sed -i '/^\s*$/d' IPTV.m3u
+            
+            # 节目源
+            rm -f EPG.xml && wget https://epg.112114.xyz/pp.xml -O EPG.xml
+            echo "Auto Update IPTV(ipv6) in $DATE,基于Moexin/IPTV项目修改,国内直播源同步fanmingming/live" > README.md
+
+    - name: Clean
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git checkout --orphan latest_branch
+        git add -A
+        git commit -am "$DATE"
+        git branch -D main
+        git branch -m main
+
+    - name: Push
+      run: git push -f origin main
